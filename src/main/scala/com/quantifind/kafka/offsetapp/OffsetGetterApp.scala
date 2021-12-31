@@ -45,12 +45,15 @@ class OffsetGetterArgs extends FieldArgs {
 
   var kafkaSecurityProtocol = "PLAINTEXT"
 
+  var saslMechanism = "PLAIN"
+
   @Required
   var zk: String = _
 
   var zkSessionTimeout: Duration = 30 seconds
 
   var zkConnectionTimeout: Duration = 30 seconds
+
 }
 
 /**

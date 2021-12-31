@@ -10,7 +10,6 @@ import com.morningstar.kafka.KafkaOffsetMetadata
 import com.morningstar.kafka.KafkaOffsetStorage
 import com.morningstar.kafka.KafkaTopicPartition
 import com.morningstar.kafka.KafkaTopicPartitionLogEndOffset
-
 import com.quantifind.kafka.OffsetGetter.OffsetInfo
 import com.quantifind.kafka.offsetapp.OffsetGetterArgs
 import com.quantifind.kafka.{Node, OffsetGetter}
@@ -19,9 +18,11 @@ import com.twitter.util.Time
 import kafka.admin.AdminClient
 import kafka.common.{KafkaException, OffsetAndMetadata, TopicAndPartition}
 import kafka.coordinator._
+import kafka.coordinator.group._
 import kafka.utils.Logging
 import org.apache.kafka.clients.CommonClientConfigs
 import org.apache.kafka.clients.consumer._
+import org.apache.kafka.common.config.SaslConfigs
 import org.apache.kafka.common.{PartitionInfo, TopicPartition}
 
 import scala.collection.{mutable, _}
@@ -44,7 +45,7 @@ class KafkaOffsetGetter(zkUtilsWrapper: ZkUtilsWrapper, args: OffsetGetterArgs) 
 
 		val topicPartition = new TopicPartition(topic, partitionId)
 		val topicAndPartition = TopicAndPartition(topic, partitionId)
-		val optionalOffsetMetaData: Option[OffsetAndMetadata] = committedOffsetMap.get(GroupTopicPartition(group, topicAndPartition))
+		val optionalOffsetMetaData: Option[OffsetAndMetadata] = committedOffsetMap.get(GroupTopicPartition(group, topicPartition))
 
 		if (!optionalOffsetMetaData.isDefined) {
 			error(s"processPartition: Could not find group-topic-partition in committedOffsetsMap, g:$group,t:$topic,p:$partitionId")
@@ -203,7 +204,7 @@ object KafkaOffsetGetter extends Logging {
 		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer")
 		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer")
 		props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, if (args.kafkaOffsetForceFromStart) "earliest" else "latest")
-
+		props.put(SaslConfigs.SASL_MECHANISM, args.saslMechanism)
 		new KafkaConsumer[Array[Byte], Array[Byte]](props)
 	}
 
@@ -215,6 +216,7 @@ object KafkaOffsetGetter extends Logging {
 		val props: Properties = new Properties
 		props.put(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, args.kafkaBrokers)
 		props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, args.kafkaSecurityProtocol)
+		props.put(SaslConfigs.SASL_MECHANISM, args.saslMechanism)
 
 		while (null == adminClient) {
 
@@ -325,14 +327,7 @@ object KafkaOffsetGetter extends Logging {
 							override def onPartitionsAssigned(partitions: util.Collection[TopicPartition]) = {
 
 								if (args.kafkaOffsetForceFromStart) {
-
-									val topicPartitionIterator = partitions.iterator()
-
-									while (topicPartitionIterator.hasNext()) {
-
-										val topicPartition: TopicPartition = topicPartitionIterator.next()
-										offsetConsumer.seekToBeginning(topicPartition)
-									}
+									offsetConsumer.seekToBeginning(partitions)
 								}
 							}
 
@@ -423,12 +418,12 @@ object KafkaOffsetGetter extends Logging {
 							groupOverviews.foreach((groupOverview: GroupOverview) => {
 
 								val groupId: String = groupOverview.groupId;
-								val consumerGroupSummary: List[AdminClient#ConsumerSummary] = adminClient.describeConsumerGroup(groupId)
+								val consumerGroupSummary: List[AdminClient#ConsumerSummary] = adminClient.describeConsumerGroup(groupId).consumers.get
 
 								consumerGroupSummary.foreach((consumerSummary) => {
 
 									val clientId: String = consumerSummary.clientId
-									val clientHost: String = consumerSummary.clientHost
+									val clientHost: String = consumerSummary.host
 
 									val topicPartitions: List[TopicPartition] = consumerSummary.assignment
 
@@ -511,7 +506,7 @@ object KafkaOffsetGetter extends Logging {
 					// Get the LogEndOffset for the TopicPartition
 					val topicPartition: TopicPartition = new TopicPartition(partitionInfo.topic, partitionInfo.partition)
 					logEndOffsetGetter.assign(Arrays.asList(topicPartition))
-					logEndOffsetGetter.seekToEnd(topicPartition)
+					logEndOffsetGetter.seekToEnd(Arrays.asList(topicPartition))
 					val logEndOffset: Long = logEndOffsetGetter.position(topicPartition)
 
 					// Update KafkaOffsetStorage

@@ -1,14 +1,8 @@
 package com.quantifind.utils
 
-import java.util.EnumSet
-
-import unfiltered.util.Port
 import com.quantifind.sumac.{ArgMain, FieldArgs}
 import com.quantifind.utils.UnfilteredWebApp.Arguments
-import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
-import javax.servlet.{DispatcherType, Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
-import org.eclipse.jetty.servlet.FilterHolder
-import org.eclipse.jetty.util.StringUtil
+import unfiltered.util.Port
 
 /**
  * build up a little web app that serves static files from the resource directory

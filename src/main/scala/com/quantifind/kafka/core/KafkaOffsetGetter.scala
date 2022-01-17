@@ -17,7 +17,6 @@ import com.quantifind.utils.ZkUtilsWrapper
 import com.twitter.util.Time
 import kafka.admin.AdminClient
 import kafka.common.{KafkaException, OffsetAndMetadata, TopicAndPartition}
-import kafka.coordinator._
 import kafka.coordinator.group._
 import kafka.utils.Logging
 import org.apache.kafka.clients.CommonClientConfigs

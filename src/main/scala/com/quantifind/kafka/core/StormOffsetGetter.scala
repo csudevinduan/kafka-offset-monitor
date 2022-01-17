@@ -1,6 +1,6 @@
 package com.quantifind.kafka.core
 
-import com.morningstar.kafka.KafkaConsumerGroup
+import com.fasterxml.jackson.databind.JsonNode
 import com.quantifind.kafka.OffsetGetter
 import com.quantifind.kafka.OffsetGetter.OffsetInfo
 import com.quantifind.utils.ZkUtilsWrapper
@@ -9,7 +9,6 @@ import kafka.api.{OffsetRequest, PartitionOffsetRequestInfo}
 import kafka.common.TopicAndPartition
 import kafka.utils.Json
 import org.I0Itec.zkclient.exception.ZkNoNodeException
-import org.apache.kafka.common.TopicPartition
 import org.apache.zookeeper.data.Stat
 
 import scala.collection._
@@ -86,8 +85,12 @@ class StormOffsetGetter(theZkUtils: ZkUtilsWrapper, zkOffsetBase: String) extend
       println(stateJson)
       Json.parseFull(stateJson) match {
         case Some(m) =>
-          val spoutState = m.asInstanceOf[Map[String, Any]]
-          List(spoutState.getOrElse("topic", "Unknown Topic").toString)
+          print(m.toString())
+          val topic = m.asJsonObject.get("topic") match {
+            case Some(x) => x.to[String]
+            case None => "Unknown Topic"
+          }
+          List(topic)
         case None =>
           List()
       }

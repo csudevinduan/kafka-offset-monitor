@@ -1,9 +1,14 @@
 package com.quantifind.utils
 
-import unfiltered.util.Port
+import java.util.EnumSet
 
+import unfiltered.util.Port
 import com.quantifind.sumac.{ArgMain, FieldArgs}
 import com.quantifind.utils.UnfilteredWebApp.Arguments
+import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
+import javax.servlet.{DispatcherType, Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
+import org.eclipse.jetty.servlet.FilterHolder
+import org.eclipse.jetty.util.StringUtil
 
 /**
  * build up a little web app that serves static files from the resource directory
@@ -24,12 +29,11 @@ trait UnfilteredWebApp[T <: Arguments] extends ArgMain[T] {
   override def main(parsed: T) {
     val root = getClass.getResource(htmlRoot)
     println("serving resources from: " + root)
-    unfiltered.jetty.Http(parsed.port)
-      .resources(root) //whatever is not matched by our filter will be served from the resources folder (html, css, ...)
-      .filter(setup(parsed))
-      .run(_ => afterStart(), _ => afterStop())
+    val resource =  unfiltered.jetty.Http(parsed.port).resources(root)
+    resource.current.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed","false")
+    resource.filter(setup(parsed))
+    resource.run(_ => afterStart(), _ => afterStop())
   }
-
 }
 
 object UnfilteredWebApp {
